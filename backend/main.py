@@ -3,7 +3,11 @@
 起動: uvicorn main:app --reload --port 8000
 """
 
+import sys
 from pathlib import Path
+
+# backend/ ディレクトリを import パスに追加（どこから起動しても jma_client を見つけられるようにする）
+sys.path.insert(0, str(Path(__file__).parent))
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
