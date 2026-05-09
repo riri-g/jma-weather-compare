@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>気象庁データ比較</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>気象庁データ比較</h1>
+    <div class="subtitle">今年の気温・降水量・日射量 vs 平年値（1991-2020年平均）</div>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="ctrl-group">
+    <label>都道府県</label>
+    <select id="pref-select">
+      <option value="">-- 選択 --</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <label>観測地点</label>
+    <select id="station-select" disabled>
+      <option value="">-- 選択 --</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <label>年</label>
+    <input type="number" id="year-input" value="2026" min="1900" max="2099" style="width:90px">
+  </div>
+  <button class="btn-fetch" id="fetch-btn" disabled>データ取得</button>
+</div>
+
+<main>
+  <div id="status"></div>
+
+  <div id="placeholder">
+    <div class="big">🌤</div>
+    <p>都道府県・観測地点を選んで「データ取得」を押してください。</p>
+  </div>
+
+  <div id="content" style="display:none">
+    <!-- サマリーカード -->
+    <div class="summary-cards">
+      <div class="card temp">
+        <div class="label">気温（年平均）</div>
+        <div class="value" id="s-temp">--</div>
+        <div class="diff" id="s-temp-diff">平年比: --</div>
+      </div>
+      <div class="card precip">
+        <div class="label">降水量（年合計）</div>
+        <div class="value" id="s-precip">--</div>
+        <div class="diff" id="s-precip-diff">平年比: --</div>
+      </div>
+      <div class="card solar">
+        <div class="label">日射量（年合計）</div>
+        <div class="value" id="s-solar">--</div>
+        <div class="diff" id="s-solar-diff">平年比: --</div>
+      </div>
+    </div>
+
+    <!-- チャート -->
+    <div class="charts-grid">
+
+      <!-- 気温 -->
+      <div class="chart-card">
+        <h2><span class="dot" style="background:var(--temp-color)"></span>月平均気温 (℃)</h2>
+        <div class="chart-wrap"><canvas id="chart-temp"></canvas></div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-line" style="background:var(--temp-color)"></div>今年の実績</div>
+          <div class="legend-item"><div class="legend-line dashed"></div>平年値</div>
+        </div>
+        <div class="anomaly-label" style="margin-top:16px">平年差 (℃)</div>
+        <div class="anomaly-wrap"><canvas id="chart-temp-anom"></canvas></div>
+      </div>
+
+      <!-- 降水量 -->
+      <div class="chart-card">
+        <h2><span class="dot" style="background:var(--precip-color)"></span>月降水量合計 (mm)</h2>
+        <div class="chart-wrap"><canvas id="chart-precip"></canvas></div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-line" style="background:var(--precip-color)"></div>今年の実績</div>
+          <div class="legend-item"><div class="legend-line dashed"></div>平年値</div>
+        </div>
+        <div class="anomaly-label" style="margin-top:16px">平年差 (mm)</div>
+        <div class="anomaly-wrap"><canvas id="chart-precip-anom"></canvas></div>
+      </div>
+
+      <!-- 日射量 -->
+      <div class="chart-card">
+        <h2><span class="dot" style="background:var(--solar-color)"></span>月全天日射量 (MJ/m²)</h2>
+        <div class="chart-wrap"><canvas id="chart-solar"></canvas></div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-line" style="background:var(--solar-color)"></div>今年の実績</div>
+          <div class="legend-item"><div class="legend-line dashed"></div>平年値</div>
+        </div>
+        <div class="anomaly-label" style="margin-top:16px">平年差 (MJ/m²)</div>
+        <div class="anomaly-wrap"><canvas id="chart-solar-anom"></canvas></div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<footer>
+  データ出典: 気象庁 統計情報 (ETRN)　|　平年値は 1991-2020 年平均
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
