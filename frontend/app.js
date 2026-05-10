@@ -49,8 +49,6 @@ async function init() {
 
   // 月セレクタの初期値を当月に
   document.getElementById('month-input').value = new Date().getMonth() + 1;
-
-  setupModeToggle();
 }
 
 // ─── モード切替 ───────────────────────────────────────────────────────────
@@ -374,6 +372,10 @@ function sum(arr) {
 }
 
 // ─── 起動 ─────────────────────────────────────────────────────────────────
+
+// モード切替はステーション取得より先に登録（fetch失敗時も動作）
+setupModeToggle();
+document.getElementById('month-input').value = new Date().getMonth() + 1;
 
 init().catch(e => {
   setStatus('error', `初期化エラー: ${e.message}　バックエンドが起動しているか確認してください。`);
