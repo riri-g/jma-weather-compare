@@ -172,21 +172,104 @@ def _parse_normal_table(html: str) -> dict:
     return _parse_monthly_table(html)
 
 
+def _parse_daily_table(html: str) -> dict:
+    """
+    日別観測値ページ（daily_s1.php / daily_a1.php）を解析する。
+    戻り値: {"temp": [...], "precip": [...], "solar": [...]}  各 31 要素（欠損 None）
+    """
+    soup = BeautifulSoup(html, "html.parser")
+
+    target = None
+    for tbl in soup.find_all("table"):
+        text = tbl.get_text()
+        if "降水量" in text and "気温" in text:
+            target = tbl
+            break
+
+    if target is None:
+        return {}
+
+    headers = _expand_headers(target)
+
+    temp_col   = _find_col(headers, ["気温", "平均"],  exclude=["最高", "最低", "露点", "湿球"])
+    precip_col = _find_col(headers, ["降水量", "合計"], exclude=["最大", "最長", "10分", "1時間"])
+    solar_col  = _find_col(headers, ["日射量"])
+
+    temp   = [None] * 31
+    precip = [None] * 31
+    solar  = [None] * 31
+
+    for row in target.find_all("tr"):
+        cells = row.find_all(["th", "td"])
+        if len(cells) < 3:
+            continue
+        if all(c.name == "th" for c in cells):
+            continue
+        m = re.match(r"^\s*(\d{1,2})\s*日?\s*$", cells[0].get_text())
+        if not m:
+            continue
+        day = int(m.group(1))
+        if not (1 <= day <= 31):
+            continue
+        idx = day - 1
+
+        def val(col):
+            if col is None or col >= len(cells):
+                return None
+            return _safe_float(cells[col].get_text())
+
+        temp[idx]   = val(temp_col)
+        precip[idx] = val(precip_col)
+        solar[idx]  = val(solar_col)
+
+    return {"temp": temp, "precip": precip, "solar": solar}
+
+
 # ─── 公開 API ────────────────────────────────────────────────
 
 def fetch_monthly(prec_no: str, block_no: str, year: int) -> dict:
-    url = (
-        f"https://www.data.jma.go.jp/obd/stats/etrn/view/monthly_s1.php"
-        f"?prec_no={prec_no}&block_no={block_no}&year={year}&month=&day=&view="
-    )
+    is_amedas = not block_no.startswith("47")
+    if is_amedas:
+        url = (
+            f"https://www.data.jma.go.jp/obd/stats/etrn/view/monthly_a1.php"
+            f"?prec_no={prec_no}&block_no={block_no}&year={year}&month=&day=&view="
+        )
+    else:
+        url = (
+            f"https://www.data.jma.go.jp/obd/stats/etrn/view/monthly_s1.php"
+            f"?prec_no={prec_no}&block_no={block_no}&year={year}&month=&day=&view="
+        )
     key = f"monthly:{prec_no}:{block_no}:{year}"
     return _cached(key, _CACHE_TTL_SHORT, lambda: _parse_monthly_table(_fetch(url)))
 
 
+def fetch_daily(prec_no: str, block_no: str, year: int, month: int) -> dict:
+    is_amedas = not block_no.startswith("47")
+    if is_amedas:
+        url = (
+            f"https://www.data.jma.go.jp/obd/stats/etrn/view/daily_a1.php"
+            f"?prec_no={prec_no}&block_no={block_no}&year={year}&month={month:02d}&day=&view="
+        )
+    else:
+        url = (
+            f"https://www.data.jma.go.jp/obd/stats/etrn/view/daily_s1.php"
+            f"?prec_no={prec_no}&block_no={block_no}&year={year}&month={month:02d}&day=&view="
+        )
+    key = f"daily:{prec_no}:{block_no}:{year}:{month}"
+    return _cached(key, _CACHE_TTL_SHORT, lambda: _parse_daily_table(_fetch(url)))
+
+
 def fetch_normals(prec_no: str, block_no: str) -> dict:
-    url = (
-        f"https://www.data.jma.go.jp/obd/stats/etrn/view/nml_sfc_ym.php"
-        f"?prec_no={prec_no}&block_no={block_no}&view="
-    )
+    is_amedas = not block_no.startswith("47")
+    if is_amedas:
+        url = (
+            f"https://www.data.jma.go.jp/obd/stats/etrn/view/nml_amd_ym.php"
+            f"?prec_no={prec_no}&block_no={block_no}&view="
+        )
+    else:
+        url = (
+            f"https://www.data.jma.go.jp/obd/stats/etrn/view/nml_sfc_ym.php"
+            f"?prec_no={prec_no}&block_no={block_no}&view="
+        )
     key = f"normal:{prec_no}:{block_no}"
     return _cached(key, _CACHE_TTL_LONG, lambda: _parse_normal_table(_fetch(url)))

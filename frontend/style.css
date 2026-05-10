@@ -81,6 +81,29 @@ select:focus, input[type="number"]:focus { border-color: var(--primary); }
 .btn-fetch:active { transform: scale(.97); }
 .btn-fetch:disabled { background: var(--border); cursor: not-allowed; }
 
+/* ─── モード切替 ─── */
+.mode-toggle {
+  display: flex;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.mode-btn {
+  padding: 7px 14px;
+  background: var(--surface);
+  border: none;
+  font-size: .9rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background .15s, color .15s;
+}
+.mode-btn.active {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+.mode-btn:hover:not(.active) { background: var(--primary-light); }
+
 /* ─── メインコンテンツ ─── */
 main { padding: 24px; max-width: 1400px; margin: 0 auto; }
 
