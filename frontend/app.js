@@ -51,34 +51,17 @@ async function init() {
   document.getElementById('month-input').value = new Date().getMonth() + 1;
 }
 
-// ─── モード切替 ───────────────────────────────────────────────────────────
+// ─── モード切替（HTML の onclick から直接呼ばれる） ──────────────────────
 
-function setupModeToggle() {
-  const monthlyBtn   = document.getElementById('mode-monthly');
-  const dailyBtn     = document.getElementById('mode-daily');
-  const monthGroup   = document.getElementById('month-group');
-  const content      = document.getElementById('content');
-  const dailyContent = document.getElementById('daily-content');
-
-  monthlyBtn.addEventListener('click', () => {
-    if (currentMode === 'monthly') return;
-    currentMode = 'monthly';
-    monthlyBtn.classList.add('active');
-    dailyBtn.classList.remove('active');
-    monthGroup.style.display = 'none';
-    dailyContent.style.display = 'none';
-    document.getElementById('status').style.display = 'none';
-  });
-
-  dailyBtn.addEventListener('click', () => {
-    if (currentMode === 'daily') return;
-    currentMode = 'daily';
-    dailyBtn.classList.add('active');
-    monthlyBtn.classList.remove('active');
-    monthGroup.style.display = '';
-    content.style.display = 'none';
-    document.getElementById('status').style.display = 'none';
-  });
+function setMode(mode) {
+  if (currentMode === mode) return;
+  currentMode = mode;
+  document.getElementById('mode-monthly').classList.toggle('active', mode === 'monthly');
+  document.getElementById('mode-daily').classList.toggle('active', mode === 'daily');
+  document.getElementById('month-group').style.display   = mode === 'daily' ? '' : 'none';
+  document.getElementById('content').style.display       = 'none';
+  document.getElementById('daily-content').style.display = 'none';
+  document.getElementById('status').style.display        = 'none';
 }
 
 // ─── 月ごとデータ取得 ─────────────────────────────────────────────────────
@@ -373,8 +356,6 @@ function sum(arr) {
 
 // ─── 起動 ─────────────────────────────────────────────────────────────────
 
-// モード切替はステーション取得より先に登録（fetch失敗時も動作）
-setupModeToggle();
 document.getElementById('month-input').value = new Date().getMonth() + 1;
 
 init().catch(e => {
