@@ -44,11 +44,18 @@ async function init() {
 
   document.getElementById('fetch-btn').addEventListener('click', () => {
     if (currentMode === 'monthly') fetchData();
-    else fetchDaily();
+    else if (currentMode === 'daily') fetchDaily();
+    else fetchRange();
   });
 
   // 月セレクタの初期値を当月に
   document.getElementById('month-input').value = new Date().getMonth() + 1;
+
+  // 期間指定の初期値を今月1日〜今日に
+  const today = new Date();
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  document.getElementById('range-start').value = firstOfMonth.toISOString().slice(0, 10);
+  document.getElementById('range-end').value   = today.toISOString().slice(0, 10);
 }
 
 // ─── モード切替（HTML の onclick から直接呼ばれる） ──────────────────────
@@ -58,9 +65,15 @@ function setMode(mode) {
   currentMode = mode;
   document.getElementById('mode-monthly').classList.toggle('active', mode === 'monthly');
   document.getElementById('mode-daily').classList.toggle('active', mode === 'daily');
-  document.getElementById('month-group').style.display   = mode === 'daily' ? '' : 'none';
+  document.getElementById('mode-range').classList.toggle('active', mode === 'range');
+  document.getElementById('month-group').style.display      = mode === 'daily'  ? '' : 'none';
+  document.getElementById('range-group').style.display      = mode === 'range'  ? '' : 'none';
+  document.getElementById('range-group-end').style.display  = mode === 'range'  ? '' : 'none';
+  document.getElementById('year-input').closest('.ctrl-group').style.display =
+    mode === 'range' ? 'none' : '';
   document.getElementById('content').style.display       = 'none';
   document.getElementById('daily-content').style.display = 'none';
+  document.getElementById('range-content').style.display = 'none';
   document.getElementById('status').style.display        = 'none';
 }
 
@@ -121,6 +134,44 @@ async function fetchDaily() {
   }
 }
 
+// ─── 期間指定データ取得 ───────────────────────────────────────────────────
+
+async function fetchRange() {
+  const [prec_no, block_no] = document.getElementById('station-select').value.split('|');
+  const start = document.getElementById('range-start').value;
+  const end   = document.getElementById('range-end').value;
+
+  if (!start || !end) {
+    setStatus('error', '開始日と終了日を入力してください。');
+    return;
+  }
+  if (start > end) {
+    setStatus('error', '開始日は終了日より前の日付を指定してください。');
+    return;
+  }
+
+  setStatus('loading', '気象庁からデータを取得中…（月をまたぐ場合は時間がかかります）');
+  document.getElementById('fetch-btn').disabled = true;
+  document.getElementById('range-content').style.display = 'none';
+  document.getElementById('placeholder').style.display = 'none';
+
+  try {
+    const res = await fetch(`${API}/range?prec_no=${prec_no}&block_no=${block_no}&start=${start}&end=${end}`);
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    renderRange(data);
+    setStatus('info', `${data.pref} ${data.station}（${start} ～ ${end}）の日別データを表示しています。`);
+  } catch (e) {
+    setStatus('error', `エラー: ${e.message}`);
+    document.getElementById('placeholder').style.display = 'block';
+  } finally {
+    document.getElementById('fetch-btn').disabled = false;
+  }
+}
+
 // ─── 月ごと描画 ───────────────────────────────────────────────────────────
 
 function renderAll(data) {
@@ -154,6 +205,86 @@ function renderDaily(data) {
   renderDailyChart('daily-solar',  labels, curSolar,  normSolar,  year, month, getVar('--solar-color'),  'MJ/m²', 'line');
 
   document.getElementById('daily-content').style.display = 'block';
+}
+
+// ─── 期間指定描画 ─────────────────────────────────────────────────────────
+
+function renderRange(data) {
+  const { current, normals, start, end } = data;
+  const labels    = current.labels;
+
+  // 各ラベルから月を取り出し、その月の平年値を参照する
+  const normTempArr   = labels.map(lbl => {
+    const m = parseInt(lbl.split('/')[0], 10);
+    return normals.temp[m - 1] ?? null;
+  });
+  const normPrecipArr = labels.map(lbl => {
+    const m = parseInt(lbl.split('/')[0], 10);
+    const days = new Date(new Date(start).getFullYear(), m, 0).getDate();
+    const v = normals.precip[m - 1];
+    return v != null ? +(v / days).toFixed(2) : null;
+  });
+  const normSolarArr  = labels.map(lbl => {
+    const m = parseInt(lbl.split('/')[0], 10);
+    const days = new Date(new Date(start).getFullYear(), m, 0).getDate();
+    const v = normals.solar[m - 1];
+    return v != null ? +(v / days).toFixed(2) : null;
+  });
+
+  renderRangeChart('range-temp',   labels, current.temp,   normTempArr,   getVar('--temp-color'),   '℃',     'line');
+  renderRangeChart('range-precip', labels, current.precip, normPrecipArr, getVar('--precip-color'), 'mm',     'bar');
+  renderRangeChart('range-solar',  labels, current.solar,  normSolarArr,  getVar('--solar-color'),  'MJ/m²', 'line');
+
+  document.getElementById('range-content').style.display = 'block';
+}
+
+function renderRangeChart(key, labels, curVals, normVals, color, unit, type) {
+  const id = `chart-${key}`;
+  if (charts[id]) charts[id].destroy();
+
+  const normalColor = getVar('--normal-dash');
+  const datasets = [
+    {
+      label: '実績',
+      data: curVals,
+      ...(type === 'bar'
+        ? { backgroundColor: color + 'aa', borderColor: color, borderWidth: 1.5 }
+        : { borderColor: color, backgroundColor: color + '22', borderWidth: 2,
+            pointRadius: labels.length > 60 ? 0 : 2, pointHoverRadius: 5, tension: 0.2, fill: true }),
+      order: 1,
+    },
+    {
+      label: '平年値（参考）',
+      data: normVals,
+      type: 'line',
+      borderColor: normalColor,
+      borderWidth: 1.5,
+      borderDash: [6, 4],
+      pointRadius: 0,
+      fill: false,
+      order: 0,
+    },
+  ];
+
+  const ctx = document.getElementById(id).getContext('2d');
+  charts[id] = new Chart(ctx, {
+    type: type === 'bar' ? 'bar' : 'line',
+    data: { labels, datasets },
+    options: {
+      ...chartOptions(unit),
+      scales: {
+        ...chartOptions(unit).scales,
+        x: {
+          ...chartOptions(unit).scales.x,
+          ticks: {
+            font: { size: 10 },
+            maxTicksLimit: 20,
+            maxRotation: 45,
+          },
+        },
+      },
+    },
+  });
 }
 
 function daysInMonth(year, month) {

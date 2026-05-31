@@ -259,6 +259,59 @@ def fetch_daily(prec_no: str, block_no: str, year: int, month: int) -> dict:
     return _cached(key, _CACHE_TTL_SHORT, lambda: _parse_daily_table(_fetch(url)))
 
 
+def fetch_range(prec_no: str, block_no: str,
+                start_year: int, start_month: int, start_day: int,
+                end_year: int,   end_month: int,   end_day: int) -> dict:
+    """
+    指定した日付範囲の日別観測値を返す。
+    戻り値: {
+      "labels": ["4/5", "4/6", ...],
+      "temp":   [...],
+      "precip": [...],
+      "solar":  [...],
+    }
+    月をまたぐ場合は複数月分を fetch_daily で取得して結合する。
+    """
+    from datetime import date, timedelta
+
+    start = date(start_year, start_month, start_day)
+    end   = date(end_year,   end_month,   end_day)
+    if start > end:
+        return {"labels": [], "temp": [], "precip": [], "solar": []}
+
+    labels, temp, precip, solar = [], [], [], []
+
+    # 月ごとに取得してスライス
+    cur_year, cur_month = start_year, start_month
+    while (cur_year, cur_month) <= (end_year, end_month):
+        daily = fetch_daily(prec_no, block_no, cur_year, cur_month)
+        if not daily:
+            cur_month += 1
+            if cur_month > 12:
+                cur_month = 1
+                cur_year += 1
+            continue
+
+        import calendar
+        days_in_month = calendar.monthrange(cur_year, cur_month)[1]
+        for d in range(1, days_in_month + 1):
+            day_date = date(cur_year, cur_month, d)
+            if day_date < start or day_date > end:
+                continue
+            idx = d - 1
+            labels.append(f"{cur_month}/{d}")
+            temp.append(daily["temp"][idx]   if idx < len(daily.get("temp",   [])) else None)
+            precip.append(daily["precip"][idx] if idx < len(daily.get("precip", [])) else None)
+            solar.append(daily["solar"][idx]  if idx < len(daily.get("solar",  [])) else None)
+
+        cur_month += 1
+        if cur_month > 12:
+            cur_month = 1
+            cur_year += 1
+
+    return {"labels": labels, "temp": temp, "precip": precip, "solar": solar}
+
+
 def fetch_normals(prec_no: str, block_no: str) -> dict:
     is_amedas = not block_no.startswith("47")
     if is_amedas:
