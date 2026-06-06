@@ -479,6 +479,9 @@ function chartOptions(unit) {
 
 // ─── 地図 ────────────────────────────────────────────────────────────────
 
+// 都道府県ごとの地点リスト（initMap で構築）
+let prefStationsMap = {};
+
 function toggleMap() {
   const panel = document.getElementById('map-panel');
   const btn   = document.getElementById('map-btn');
@@ -488,8 +491,6 @@ function toggleMap() {
 
   if (!open) return;
 
-  // display:none → 表示に切り替えた直後はコンテナサイズが確定していないため、
-  // ブラウザの描画サイクルを1フレーム待ってから初期化・リサイズする
   requestAnimationFrame(() => {
     if (!mapLoaded) {
       initMap();
@@ -497,6 +498,11 @@ function toggleMap() {
       leafletMap.invalidateSize();
     }
   });
+}
+
+function closeMap() {
+  document.getElementById('map-panel').style.display = 'none';
+  document.getElementById('map-btn').classList.remove('open');
 }
 
 async function initMap() {
@@ -509,7 +515,6 @@ async function initMap() {
     maxZoom: 18,
   }).addTo(leafletMap);
 
-  // パネル表示後にサイズを再確定してタイルを正しく描画する
   leafletMap.invalidateSize();
 
   let geoStations = [];
@@ -521,73 +526,103 @@ async function initMap() {
     return;
   }
 
+  // 都道府県ごとにグループ化
+  prefStationsMap = {};
+  geoStations.forEach(s => {
+    if (!prefStationsMap[s.pref]) prefStationsMap[s.pref] = [];
+    prefStationsMap[s.pref].push(s);
+  });
+
   const exactCount = geoStations.filter(s => s.exact).length;
   const total      = geoStations.length;
-  const hintEl     = document.getElementById('map-exact-count');
-  hintEl.textContent = exactCount === total
-    ? `全 ${total} 局（正確な座標）`
-    : `正確な座標: ${exactCount} 局 / 都道府県中心: ${total - exactCount} 局`;
+  document.getElementById('map-exact-count').textContent =
+    exactCount === total
+      ? `全 ${total} 局（正確な座標）`
+      : `都道府県マーカーをクリックして地点を選択 / 正確な座標: ${exactCount} 局`;
 
-  // 選択状態のマーカーを更新するための参照
-  const markerMap = {};  // key → marker
-
+  // 都道府県ごとに1つのマーカーを表示（正確座標があれば個別マーカーも追加）
+  const prefCentroids = {};
   geoStations.forEach(s => {
-    const key    = `${s.prec_no}|${s.block_no}`;
-    const color  = s.exact ? '#1a6fc4' : '#94a3b8';
-    const radius = s.exact ? 5 : 3;
-
-    const marker = L.circleMarker([s.lat, s.lon], {
-      radius,
-      fillColor: color,
-      color: '#fff',
-      weight: 1,
-      fillOpacity: 0.85,
-    }).addTo(leafletMap);
-
-    marker.bindTooltip(`${s.pref}　${s.name}`, { direction: 'top', offset: [0, -4] });
-
-    marker.on('click', () => selectStationFromMap(s, marker, markerMap));
-    markerMap[key] = marker;
+    if (!prefCentroids[s.pref]) prefCentroids[s.pref] = { lat: s.lat, lon: s.lon };
   });
 
-  // ドロップダウンで変更されたときにマーカーを同期
-  document.getElementById('station-select').addEventListener('change', () => {
-    const val = document.getElementById('station-select').value;
-    highlightMarker(val, markerMap);
+  Object.entries(prefCentroids).forEach(([pref, { lat, lon }]) => {
+    const stations = prefStationsMap[pref] || [];
+    const marker   = L.marker([lat, lon], { title: pref }).addTo(leafletMap);
+
+    marker.on('click', () => {
+      showStationList(pref, stations, lat, lon);
+    });
   });
+
+  // build_geo.py 実行済みの場合は個別マーカーも表示（ズームイン時）
+  if (exactCount > 0) {
+    geoStations.filter(s => s.exact).forEach(s => {
+      const dot = L.circleMarker([s.lat, s.lon], {
+        radius: 5, fillColor: '#1a6fc4', color: '#fff', weight: 1, fillOpacity: 0.85,
+      }).addTo(leafletMap);
+      dot.bindTooltip(`${s.pref} ${s.name}`, { direction: 'top' });
+      dot.on('click', () => confirmAndSelect(s));
+    });
+  }
 }
 
-function selectStationFromMap(s, marker, markerMap) {
+function showStationList(pref, stations, lat, lon) {
+  const listHtml = stations.map(s => {
+    const key = `${s.prec_no}|${s.block_no}`;
+    return `<div class="map-station-item" data-key="${key}" data-pref="${pref}"
+               data-name="${s.name}" style="padding:4px 0;cursor:pointer;border-bottom:1px solid #eee;">
+              ${s.name}
+            </div>`;
+  }).join('');
+
+  const content = `
+    <div style="max-height:200px;overflow-y:auto;min-width:140px;">
+      <div style="font-weight:700;margin-bottom:6px;font-size:.9rem;">${pref}</div>
+      ${listHtml}
+    </div>`;
+
+  L.popup({ maxWidth: 220 })
+    .setLatLng([lat, lon])
+    .setContent(content)
+    .openOn(leafletMap);
+
+  // popup が DOM に追加された後にクリックイベントを設定
+  setTimeout(() => {
+    document.querySelectorAll('.map-station-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const s = {
+          prec_no:  el.dataset.key.split('|')[0],
+          block_no: el.dataset.key.split('|')[1],
+          pref:     el.dataset.pref,
+          name:     el.dataset.name,
+        };
+        confirmAndSelect(s);
+      });
+    });
+  }, 0);
+}
+
+function confirmAndSelect(s) {
   const key = `${s.prec_no}|${s.block_no}`;
 
-  // 都道府県セレクタを更新
+  // プルダウンを更新
   const prefSel = document.getElementById('pref-select');
   prefSel.value = s.pref;
   prefSel.dispatchEvent(new Event('change'));
 
-  // 観測地点セレクタを更新（change イベント後にオプションが生成される）
   setTimeout(() => {
     const stationSel = document.getElementById('station-select');
     stationSel.value = key;
     stationSel.dispatchEvent(new Event('change'));
-    highlightMarker(key, markerMap);
+
+    // 選択中ラベルを表示
+    document.getElementById('selected-station-label').textContent = `${s.pref} ${s.name}`;
+    document.getElementById('selected-station-group').style.display = '';
+
+    // 地図を閉じる
+    closeMap();
   }, 0);
-}
-
-function highlightMarker(key, markerMap) {
-  // 前の選択マーカーをリセット
-  if (selectedMarker) {
-    selectedMarker.setStyle({ fillColor: selectedMarker._origColor, radius: selectedMarker._origRadius });
-  }
-  const m = markerMap[key];
-  if (!m) return;
-  m._origColor  = m._origColor  || m.options.fillColor;
-  m._origRadius = m._origRadius || m.options.radius;
-  m.setStyle({ fillColor: '#e05252', radius: 8 });
-  selectedMarker = m;
-
-  // 地図をマーカー中心に移動
-  if (leafletMap) leafletMap.panTo(m.getLatLng());
 }
 
 // ─── CSV ダウンロード ─────────────────────────────────────────────────────

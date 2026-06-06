@@ -122,6 +122,18 @@ input[type="date"] {
 .btn-map:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
 .btn-map.open  { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
 
+/* 選択中の地点表示 */
+.selected-station-label {
+  display: inline-block;
+  padding: 6px 10px;
+  background: var(--primary-light);
+  color: var(--primary);
+  border-radius: 6px;
+  font-size: .9rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 /* ─── 地図パネル ─── */
 #map-panel {
   border-bottom: 1px solid var(--border);
