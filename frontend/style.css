@@ -63,7 +63,18 @@ select, input[type="number"] {
   transition: border-color .15s;
   cursor: pointer;
 }
-select:focus, input[type="number"]:focus { border-color: var(--primary); }
+select:focus, input[type="number"]:focus, input[type="date"]:focus { border-color: var(--primary); }
+input[type="date"] {
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: .95rem;
+  color: var(--text);
+  background: var(--surface);
+  outline: none;
+  cursor: pointer;
+}
+.input-year { width: 90px; }
 
 .btn-fetch {
   padding: 8px 20px;
@@ -231,4 +242,86 @@ footer {
   color: var(--text-muted);
   border-top: 1px solid var(--border);
   margin-top: 40px;
+}
+
+/* ════════════════════════════════════════
+   レスポンシブ対応
+   ════════════════════════════════════════ */
+
+/* ─── タブレット (〜900px) ─── */
+@media (max-width: 900px) {
+  .chart-wrap { height: 240px; }
+  .anomaly-wrap { height: 120px; }
+  main { padding: 16px; }
+}
+
+/* ─── モバイル (〜600px) ─── */
+@media (max-width: 600px) {
+  /* ヘッダー */
+  header { padding: 12px 16px; }
+  header h1 { font-size: 1rem; }
+  header .subtitle { font-size: .72rem; }
+
+  /* コントロールパネル */
+  .controls {
+    padding: 12px 16px;
+    gap: 10px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* 都道府県・観測地点・日付入力は横に2列並べる */
+  .controls > .ctrl-group { width: 100%; }
+
+  select, input[type="number"], input[type="date"] {
+    width: 100%;
+    font-size: 1rem;
+    padding: 10px 12px;
+  }
+
+  /* モード切替ボタン：全幅に引き伸ばす */
+  .mode-toggle { width: 100%; }
+  .mode-btn {
+    flex: 1;
+    padding: 10px 4px;
+    font-size: .85rem;
+    min-height: 44px; /* タッチターゲット確保 */
+  }
+
+  /* データ取得・CSVボタン：横並び */
+  .controls {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .controls > .ctrl-group { flex: 1 1 calc(50% - 5px); min-width: 140px; }
+  .controls > .ctrl-group:first-child,
+  .controls > .ctrl-group:nth-child(2) { flex: 1 1 100%; }
+
+  .btn-fetch, .btn-csv {
+    flex: 1 1 calc(50% - 5px);
+    min-height: 44px;
+    font-size: .95rem;
+    align-self: stretch;
+    text-align: center;
+  }
+
+  /* メインコンテンツ */
+  main { padding: 12px; }
+
+  /* チャート */
+  .chart-wrap { height: 200px; }
+  .anomaly-wrap { height: 100px; }
+  .chart-card { padding: 14px 12px; }
+  .chart-card h2 { font-size: .9rem; margin-bottom: 10px; }
+
+  /* サマリーカード */
+  .summary-cards { grid-template-columns: 1fr; gap: 10px; margin-bottom: 16px; }
+  .card .value { font-size: 1.3rem; }
+
+  /* プレースホルダー */
+  #placeholder { padding: 40px 16px; }
+  #placeholder .big { font-size: 2.4rem; }
+
+  /* フッター */
+  footer { padding: 16px 12px; font-size: .72rem; }
 }
