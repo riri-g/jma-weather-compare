@@ -122,16 +122,29 @@ input[type="date"] {
 .btn-map:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
 .btn-map.open  { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
 
+/* 地点選択行（ボタン＋ラベル横並び） */
+.station-select-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 /* 選択中の地点表示 */
 .selected-station-label {
   display: inline-block;
   padding: 6px 10px;
-  background: var(--primary-light);
-  color: var(--primary);
+  background: var(--bg);
+  color: var(--text-muted);
+  border: 1.5px dashed var(--border);
   border-radius: 6px;
   font-size: .9rem;
-  font-weight: 600;
   white-space: nowrap;
+}
+.selected-station-label.has-station {
+  background: var(--primary-light);
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+  font-weight: 600;
 }
 
 /* ─── 地図パネル ─── */

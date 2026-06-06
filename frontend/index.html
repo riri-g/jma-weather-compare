@@ -20,18 +20,12 @@
 
 <div class="controls">
   <div class="ctrl-group">
-    <label>都道府県</label>
-    <select id="pref-select">
-      <option value="">-- 選択 --</option>
-    </select>
-  </div>
-  <div class="ctrl-group">
     <label>観測地点</label>
-    <select id="station-select" disabled>
-      <option value="">-- 選択 --</option>
-    </select>
+    <div class="station-select-row">
+      <button class="btn-map" id="map-btn" type="button">🗾 地図で選択</button>
+      <span id="selected-station-label" class="selected-station-label">地図で地点を選んでください</span>
+    </div>
   </div>
-  <button class="btn-map" id="map-btn" type="button">🗾 地図</button>
   <div class="ctrl-group">
     <label>表示</label>
     <div class="mode-toggle">
@@ -69,10 +63,6 @@
     <label>終了日</label>
     <input type="date" id="range-end">
   </div>
-  <div class="ctrl-group" id="selected-station-group" style="display:none">
-    <label>選択中</label>
-    <span id="selected-station-label" class="selected-station-label"></span>
-  </div>
   <button class="btn-fetch" id="fetch-btn" disabled>データ取得</button>
   <button class="btn-csv" id="csv-btn" style="display:none" onclick="downloadCSV()">CSV ダウンロード</button>
 </div>
@@ -88,7 +78,7 @@
 
   <div id="placeholder">
     <div class="big">🌤</div>
-    <p>都道府県・観測地点を選んで「データ取得」を押してください。</p>
+    <p>「🗾 地図で選択」から観測地点を選んで「データ取得」を押してください。</p>
   </div>
 
   <!-- ─── 月ごとコンテンツ ─── -->
@@ -210,6 +200,6 @@
   データ出典: 気象庁 統計情報 (ETRN)　|　平年値は 1991-2020 年平均
 </footer>
 
-<script src="app.js?v=12"></script>
+<script src="app.js?v=13"></script>
 </body>
 </html>

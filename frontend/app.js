@@ -6,6 +6,7 @@ const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','
 const charts = {};
 let currentMode = 'monthly';
 let currentData = null;
+let selectedStation = null;  // { prec_no, block_no, pref, name }
 
 // ─── 地図関連 ─────────────────────────────────────────────────────────────
 let leafletMap = null;
@@ -14,40 +15,7 @@ let mapLoaded = false;
 
 // ─── 初期化 ────────────────────────────────────────────────────────────────
 
-async function init() {
-  const res = await fetch(`${API}/stations`);
-  const stations = await res.json();
-
-  const prefMap = {};
-  for (const s of stations) {
-    if (!prefMap[s.pref]) prefMap[s.pref] = [];
-    prefMap[s.pref].push(s);
-  }
-
-  const prefSel    = document.getElementById('pref-select');
-  const stationSel = document.getElementById('station-select');
-
-  for (const pref of Object.keys(prefMap)) {
-    prefSel.add(new Option(pref, pref));
-  }
-
-  prefSel.addEventListener('change', () => {
-    stationSel.innerHTML = '<option value="">-- 選択 --</option>';
-    stationSel.disabled = true;
-    document.getElementById('fetch-btn').disabled = true;
-
-    const pref = prefSel.value;
-    if (!pref) return;
-    for (const s of prefMap[pref]) {
-      stationSel.add(new Option(s.name, `${s.prec_no}|${s.block_no}`));
-    }
-    stationSel.disabled = false;
-  });
-
-  stationSel.addEventListener('change', () => {
-    document.getElementById('fetch-btn').disabled = !stationSel.value;
-  });
-
+function init() {
   document.getElementById('fetch-btn').addEventListener('click', () => {
     if (currentMode === 'monthly') fetchData();
     else if (currentMode === 'daily') fetchDaily();
@@ -88,7 +56,8 @@ function setMode(mode) {
 // ─── 月ごとデータ取得 ─────────────────────────────────────────────────────
 
 async function fetchData() {
-  const [prec_no, block_no] = document.getElementById('station-select').value.split('|');
+  if (!selectedStation) return;
+  const { prec_no, block_no } = selectedStation;
   const year = document.getElementById('year-input').value;
 
   setStatus('loading', '気象庁からデータを取得中…（初回は10〜20秒かかる場合があります）');
@@ -116,7 +85,8 @@ async function fetchData() {
 // ─── 日ごとデータ取得 ─────────────────────────────────────────────────────
 
 async function fetchDaily() {
-  const [prec_no, block_no] = document.getElementById('station-select').value.split('|');
+  if (!selectedStation) return;
+  const { prec_no, block_no } = selectedStation;
   const year  = document.getElementById('year-input').value;
   const month = document.getElementById('month-input').value;
 
@@ -145,7 +115,8 @@ async function fetchDaily() {
 // ─── 期間指定データ取得 ───────────────────────────────────────────────────
 
 async function fetchRange() {
-  const [prec_no, block_no] = document.getElementById('station-select').value.split('|');
+  if (!selectedStation) return;
+  const { prec_no, block_no } = selectedStation;
   const start = document.getElementById('range-start').value;
   const end   = document.getElementById('range-end').value;
 
@@ -604,25 +575,14 @@ function showStationList(pref, stations, lat, lon) {
 }
 
 function confirmAndSelect(s) {
-  const key = `${s.prec_no}|${s.block_no}`;
+  selectedStation = { prec_no: s.prec_no, block_no: s.block_no, pref: s.pref, name: s.name };
 
-  // プルダウンを更新
-  const prefSel = document.getElementById('pref-select');
-  prefSel.value = s.pref;
-  prefSel.dispatchEvent(new Event('change'));
+  const lbl = document.getElementById('selected-station-label');
+  lbl.textContent = `${s.pref}　${s.name}`;
+  lbl.classList.add('has-station');
 
-  setTimeout(() => {
-    const stationSel = document.getElementById('station-select');
-    stationSel.value = key;
-    stationSel.dispatchEvent(new Event('change'));
-
-    // 選択中ラベルを表示
-    document.getElementById('selected-station-label').textContent = `${s.pref} ${s.name}`;
-    document.getElementById('selected-station-group').style.display = '';
-
-    // 地図を閉じる
-    closeMap();
-  }, 0);
+  document.getElementById('fetch-btn').disabled = false;
+  closeMap();
 }
 
 // ─── CSV ダウンロード ─────────────────────────────────────────────────────
@@ -727,11 +687,7 @@ function sum(arr) {
 
 // ─── 起動 ─────────────────────────────────────────────────────────────────
 
-document.getElementById('month-input').value = new Date().getMonth() + 1;
-
-// 地図ボタンのイベントを onclick 属性ではなく JS 側で登録
+// 地図ボタンのイベントを JS 側で登録
 document.getElementById('map-btn').addEventListener('click', toggleMap);
 
-init().catch(e => {
-  setStatus('error', `初期化エラー: ${e.message}　バックエンドが起動しているか確認してください。`);
-});
+init();
