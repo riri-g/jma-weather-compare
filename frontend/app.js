@@ -582,7 +582,11 @@ function confirmAndSelect(s) {
   lbl.classList.add('has-station');
 
   document.getElementById('fetch-btn').disabled = false;
-  closeMap();
+
+  // 地図はそのまま開いた状態でデータを取得・表示
+  if (currentMode === 'monthly')    fetchData();
+  else if (currentMode === 'daily') fetchDaily();
+  else                              fetchRange();
 }
 
 // ─── CSV ダウンロード ─────────────────────────────────────────────────────
