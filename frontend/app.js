@@ -486,12 +486,17 @@ function toggleMap() {
   panel.style.display = open ? '' : 'none';
   btn.classList.toggle('open', open);
 
-  if (open && !mapLoaded) {
-    initMap();
-  } else if (open && leafletMap) {
-    // サイズ再計算（非表示から表示に切り替えた後に必要）
-    leafletMap.invalidateSize();
-  }
+  if (!open) return;
+
+  // display:none → 表示に切り替えた直後はコンテナサイズが確定していないため、
+  // ブラウザの描画サイクルを1フレーム待ってから初期化・リサイズする
+  requestAnimationFrame(() => {
+    if (!mapLoaded) {
+      initMap();
+    } else if (leafletMap) {
+      leafletMap.invalidateSize();
+    }
+  });
 }
 
 async function initMap() {
@@ -503,6 +508,9 @@ async function initMap() {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     maxZoom: 18,
   }).addTo(leafletMap);
+
+  // パネル表示後にサイズを再確定してタイルを正しく描画する
+  leafletMap.invalidateSize();
 
   let geoStations = [];
   try {
