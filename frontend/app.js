@@ -5,6 +5,7 @@ const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','
 
 const charts = {};
 let currentMode = 'monthly';
+let currentData = null;
 
 // ─── 初期化 ────────────────────────────────────────────────────────────────
 
@@ -75,6 +76,8 @@ function setMode(mode) {
   document.getElementById('daily-content').style.display = 'none';
   document.getElementById('range-content').style.display = 'none';
   document.getElementById('status').style.display        = 'none';
+  document.getElementById('csv-btn').style.display       = 'none';
+  currentData = null;
 }
 
 // ─── 月ごとデータ取得 ─────────────────────────────────────────────────────
@@ -175,12 +178,14 @@ async function fetchRange() {
 // ─── 月ごと描画 ───────────────────────────────────────────────────────────
 
 function renderAll(data) {
+  currentData = data;
   const { current, normals, year } = data;
   updateSummary(current, normals);
   renderChart('temp',   current.temp,   normals.temp,   year, getVar('--temp-color'),   '℃',     'line');
   renderChart('precip', current.precip, normals.precip, year, getVar('--precip-color'), 'mm',     'bar');
   renderChart('solar',  current.solar,  normals.solar,  year, getVar('--solar-color'),  'MJ/m²', 'line');
   document.getElementById('content').style.display = 'block';
+  document.getElementById('csv-btn').style.display = '';
 }
 
 // ─── 日ごと描画 ───────────────────────────────────────────────────────────
@@ -204,7 +209,9 @@ function renderDaily(data) {
   renderDailyChart('daily-precip', labels, curPrecip, normPrecip, year, month, getVar('--precip-color'), 'mm',     'bar');
   renderDailyChart('daily-solar',  labels, curSolar,  normSolar,  year, month, getVar('--solar-color'),  'MJ/m²', 'line');
 
+  currentData = data;
   document.getElementById('daily-content').style.display = 'block';
+  document.getElementById('csv-btn').style.display = '';
 }
 
 // ─── 期間指定描画 ─────────────────────────────────────────────────────────
@@ -235,7 +242,9 @@ function renderRange(data) {
   renderRangeChart('range-precip', labels, current.precip, normPrecipArr, getVar('--precip-color'), 'mm',     'bar');
   renderRangeChart('range-solar',  labels, current.solar,  normSolarArr,  getVar('--solar-color'),  'MJ/m²', 'line');
 
+  currentData = data;
   document.getElementById('range-content').style.display = 'block';
+  document.getElementById('csv-btn').style.display = '';
 }
 
 function renderRangeChart(key, labels, curVals, normVals, color, unit, type) {
@@ -461,6 +470,84 @@ function chartOptions(unit) {
       },
     },
   };
+}
+
+// ─── CSV ダウンロード ─────────────────────────────────────────────────────
+
+function downloadCSV() {
+  if (!currentData) return;
+  const { rows, filename } = buildCSV(currentData, currentMode);
+  const bom  = '﻿'; // Excel で文字化けしないよう BOM を付与
+  const blob = new Blob([bom + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function buildCSV(data, mode) {
+  const esc = v => (v == null ? '' : String(v));
+
+  if (mode === 'monthly') {
+    const { current, normals, station, pref, year } = data;
+    const header = ['月', '気温実績(℃)', '気温平年値(℃)', '気温平年差(℃)',
+                    '降水量実績(mm)', '降水量平年値(mm)', '降水量平年差(mm)',
+                    '日射量実績(MJ/m²)', '日射量平年値(MJ/m²)', '日射量平年差(MJ/m²)'];
+    const rows = [header.join(',')];
+    for (let i = 0; i < 12; i++) {
+      const ct = current.temp[i],   nt = normals.temp[i];
+      const cp = current.precip[i], np = normals.precip[i];
+      const cs = current.solar[i],  ns = normals.solar[i];
+      rows.push([
+        i + 1,
+        esc(ct), esc(nt), ct != null && nt != null ? +(ct - nt).toFixed(2) : '',
+        esc(cp), esc(np), cp != null && np != null ? +(cp - np).toFixed(1) : '',
+        esc(cs), esc(ns), cs != null && ns != null ? +(cs - ns).toFixed(1) : '',
+      ].join(','));
+    }
+    return { rows, filename: `${pref}${station}_${year}年_月別.csv` };
+  }
+
+  if (mode === 'daily') {
+    const { current, normals, station, pref, year, month } = data;
+    const days = daysInMonth(year, month);
+    const nt   = normals.temp[month - 1];
+    const np   = normals.precip[month - 1] != null ? +(normals.precip[month - 1] / days).toFixed(2) : null;
+    const ns   = normals.solar[month - 1]  != null ? +(normals.solar[month - 1]  / days).toFixed(2) : null;
+    const header = ['日', '気温実績(℃)', '降水量実績(mm)', '日射量実績(MJ/m²)',
+                    '気温平年参考(℃)', '降水量平年参考(mm)', '日射量平年参考(MJ/m²)'];
+    const rows = [header.join(',')];
+    for (let i = 0; i < days; i++) {
+      rows.push([
+        i + 1,
+        esc(current.temp[i]), esc(current.precip[i]), esc(current.solar[i]),
+        esc(nt), esc(np), esc(ns),
+      ].join(','));
+    }
+    return { rows, filename: `${pref}${station}_${year}年${month}月_日別.csv` };
+  }
+
+  // range
+  const { current, normals, station, pref, start, end } = data;
+  const header = ['日付', '気温実績(℃)', '降水量実績(mm)', '日射量実績(MJ/m²)',
+                  '気温平年参考(℃)', '降水量平年参考(mm)', '日射量平年参考(MJ/m²)'];
+  const rows = [header.join(',')];
+  current.labels.forEach((lbl, i) => {
+    const m    = parseInt(lbl.split('/')[0], 10);
+    const year = parseInt(start.split('-')[0], 10);
+    const days = new Date(year, m, 0).getDate();
+    const nt   = normals.temp[m - 1] ?? null;
+    const np   = normals.precip[m - 1] != null ? +(normals.precip[m - 1] / days).toFixed(2) : null;
+    const ns   = normals.solar[m - 1]  != null ? +(normals.solar[m - 1]  / days).toFixed(2) : null;
+    rows.push([
+      lbl,
+      esc(current.temp[i]), esc(current.precip[i]), esc(current.solar[i]),
+      esc(nt), esc(np), esc(ns),
+    ].join(','));
+  });
+  return { rows, filename: `${pref}${station}_${start}_${end}_期間.csv` };
 }
 
 // ─── ユーティリティ ───────────────────────────────────────────────────────

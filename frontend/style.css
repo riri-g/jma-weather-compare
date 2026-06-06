@@ -81,6 +81,21 @@ select:focus, input[type="number"]:focus { border-color: var(--primary); }
 .btn-fetch:active { transform: scale(.97); }
 .btn-fetch:disabled { background: var(--border); cursor: not-allowed; }
 
+.btn-csv {
+  padding: 8px 16px;
+  background: #fff;
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+  border-radius: 8px;
+  font-size: .9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  align-self: flex-end;
+}
+.btn-csv:hover { background: var(--primary-light); }
+.btn-csv:active { transform: scale(.97); }
+
 /* ─── モード切替 ─── */
 .mode-toggle {
   display: flex;
