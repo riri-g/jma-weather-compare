@@ -107,6 +107,38 @@ input[type="date"] {
 .btn-csv:hover { background: var(--primary-light); }
 .btn-csv:active { transform: scale(.97); }
 
+.btn-map {
+  padding: 8px 14px;
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: .9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+  align-self: flex-end;
+}
+.btn-map:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+.btn-map.open  { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+
+/* ─── 地図パネル ─── */
+#map-panel {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+#map-container {
+  height: 420px;
+  width: 100%;
+}
+#map-hint {
+  padding: 6px 16px;
+  font-size: .78rem;
+  color: var(--text-muted);
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+
 /* ─── モード切替 ─── */
 .mode-toggle {
   display: flex;
@@ -253,6 +285,7 @@ footer {
   .chart-wrap { height: 240px; }
   .anomaly-wrap { height: 120px; }
   main { padding: 16px; }
+  #map-container { height: 340px; }
 }
 
 /* ─── モバイル (〜600px) ─── */
@@ -324,4 +357,8 @@ footer {
 
   /* フッター */
   footer { padding: 16px 12px; font-size: .72rem; }
+
+  /* 地図 */
+  #map-container { height: 260px; }
+  .btn-map { flex: 1 1 calc(50% - 5px); min-height: 44px; }
 }

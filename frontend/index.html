@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>気象庁データ比較</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -66,8 +68,15 @@
     <label>終了日</label>
     <input type="date" id="range-end">
   </div>
+  <button class="btn-map" id="map-btn" type="button" onclick="toggleMap()">🗾 地図</button>
   <button class="btn-fetch" id="fetch-btn" disabled>データ取得</button>
   <button class="btn-csv" id="csv-btn" style="display:none" onclick="downloadCSV()">CSV ダウンロード</button>
+</div>
+
+<!-- ─── 地図パネル ─── -->
+<div id="map-panel" style="display:none">
+  <div id="map-container"></div>
+  <div id="map-hint">観測地点をクリックして選択 ／ <span id="map-exact-count"></span></div>
 </div>
 
 <main>
@@ -197,6 +206,6 @@
   データ出典: 気象庁 統計情報 (ETRN)　|　平年値は 1991-2020 年平均
 </footer>
 
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

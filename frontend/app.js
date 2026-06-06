@@ -7,6 +7,11 @@ const charts = {};
 let currentMode = 'monthly';
 let currentData = null;
 
+// ─── 地図関連 ─────────────────────────────────────────────────────────────
+let leafletMap = null;
+let selectedMarker = null;
+let mapLoaded = false;
+
 // ─── 初期化 ────────────────────────────────────────────────────────────────
 
 async function init() {
@@ -470,6 +475,111 @@ function chartOptions(unit) {
       },
     },
   };
+}
+
+// ─── 地図 ────────────────────────────────────────────────────────────────
+
+function toggleMap() {
+  const panel = document.getElementById('map-panel');
+  const btn   = document.getElementById('map-btn');
+  const open  = panel.style.display === 'none';
+  panel.style.display = open ? '' : 'none';
+  btn.classList.toggle('open', open);
+
+  if (open && !mapLoaded) {
+    initMap();
+  } else if (open && leafletMap) {
+    // サイズ再計算（非表示から表示に切り替えた後に必要）
+    leafletMap.invalidateSize();
+  }
+}
+
+async function initMap() {
+  mapLoaded = true;
+
+  leafletMap = L.map('map-container', { zoomControl: true }).setView([36.5, 136.5], 5);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 18,
+  }).addTo(leafletMap);
+
+  let geoStations = [];
+  try {
+    const res = await fetch(`${API}/stations-geo`);
+    geoStations = await res.json();
+  } catch (e) {
+    document.getElementById('map-hint').textContent = '地図データの読み込みに失敗しました。';
+    return;
+  }
+
+  const exactCount = geoStations.filter(s => s.exact).length;
+  const total      = geoStations.length;
+  const hintEl     = document.getElementById('map-exact-count');
+  hintEl.textContent = exactCount === total
+    ? `全 ${total} 局（正確な座標）`
+    : `正確な座標: ${exactCount} 局 / 都道府県中心: ${total - exactCount} 局`;
+
+  // 選択状態のマーカーを更新するための参照
+  const markerMap = {};  // key → marker
+
+  geoStations.forEach(s => {
+    const key    = `${s.prec_no}|${s.block_no}`;
+    const color  = s.exact ? '#1a6fc4' : '#94a3b8';
+    const radius = s.exact ? 5 : 3;
+
+    const marker = L.circleMarker([s.lat, s.lon], {
+      radius,
+      fillColor: color,
+      color: '#fff',
+      weight: 1,
+      fillOpacity: 0.85,
+    }).addTo(leafletMap);
+
+    marker.bindTooltip(`${s.pref}　${s.name}`, { direction: 'top', offset: [0, -4] });
+
+    marker.on('click', () => selectStationFromMap(s, marker, markerMap));
+    markerMap[key] = marker;
+  });
+
+  // ドロップダウンで変更されたときにマーカーを同期
+  document.getElementById('station-select').addEventListener('change', () => {
+    const val = document.getElementById('station-select').value;
+    highlightMarker(val, markerMap);
+  });
+}
+
+function selectStationFromMap(s, marker, markerMap) {
+  const key = `${s.prec_no}|${s.block_no}`;
+
+  // 都道府県セレクタを更新
+  const prefSel = document.getElementById('pref-select');
+  prefSel.value = s.pref;
+  prefSel.dispatchEvent(new Event('change'));
+
+  // 観測地点セレクタを更新（change イベント後にオプションが生成される）
+  setTimeout(() => {
+    const stationSel = document.getElementById('station-select');
+    stationSel.value = key;
+    stationSel.dispatchEvent(new Event('change'));
+    highlightMarker(key, markerMap);
+  }, 0);
+}
+
+function highlightMarker(key, markerMap) {
+  // 前の選択マーカーをリセット
+  if (selectedMarker) {
+    selectedMarker.setStyle({ fillColor: selectedMarker._origColor, radius: selectedMarker._origRadius });
+  }
+  const m = markerMap[key];
+  if (!m) return;
+  m._origColor  = m._origColor  || m.options.fillColor;
+  m._origRadius = m._origRadius || m.options.radius;
+  m.setStyle({ fillColor: '#e05252', radius: 8 });
+  selectedMarker = m;
+
+  // 地図をマーカー中心に移動
+  if (leafletMap) leafletMap.panTo(m.getLatLng());
 }
 
 // ─── CSV ダウンロード ─────────────────────────────────────────────────────
