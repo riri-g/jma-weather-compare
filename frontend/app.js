@@ -694,6 +694,9 @@ function sum(arr) {
 
 document.getElementById('month-input').value = new Date().getMonth() + 1;
 
+// 地図ボタンのイベントを onclick 属性ではなく JS 側で登録
+document.getElementById('map-btn').addEventListener('click', toggleMap);
+
 init().catch(e => {
   setStatus('error', `初期化エラー: ${e.message}　バックエンドが起動しているか確認してください。`);
 });
